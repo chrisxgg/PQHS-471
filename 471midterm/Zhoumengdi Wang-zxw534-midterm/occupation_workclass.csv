@@ -1,0 +1,16 @@
+""," ?"," Federal-gov"," Local-gov"," Never-worked"," Private"," Self-emp-inc"," Self-emp-not-inc"," State-gov"," Without-pay"
+" ?",0,0,0,0,0,0,0,0,0
+" Adm-clerical",0,240,220,0,2146,19,37,186,2
+" Armed-Forces",0,6,0,0,0,0,0,0,0
+" Craft-repair",0,47,112,0,2418,82,412,38,1
+" Exec-managerial",0,133,162,0,2064,298,290,141,0
+" Farming-fishing",0,5,21,0,357,33,333,13,4
+" Handlers-cleaners",0,17,34,0,967,1,11,6,0
+" Machine-op-inspct",0,11,9,0,1436,8,28,11,1
+" Other-service",0,27,142,0,2051,19,141,97,1
+" Priv-house-serv",0,0,0,0,108,0,0,0,0
+" Prof-specialty",0,134,532,0,1740,120,269,316,0
+" Protective-serv",0,22,228,0,142,2,5,84,0
+" Sales",0,11,5,0,2202,219,284,9,0
+" Tech-support",0,52,26,0,542,3,18,44,0
+" Transport-moving",0,18,91,0,963,23,88,32,1

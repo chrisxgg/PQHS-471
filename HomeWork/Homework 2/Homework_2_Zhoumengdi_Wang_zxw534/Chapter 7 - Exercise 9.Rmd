@@ -1,0 +1,176 @@
+---
+title: "Chapter 7 - Exercise 9"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(MASS)
+library(glmnet)
+library(boot)
+
+```
+
+#### (a)
+```{r}
+poly_lm = lm(nox ~ poly(dis, 3), data=Boston)
+poly_lm.sum = summary(poly_lm)
+```
+
+```{r}
+dis_range = range(Boston$dis)
+dis_grid=seq(from=dis_range[1], to=dis_range[2])
+poly_lm_pred = predict(poly_lm, newdata=list(dis = dis_grid), se=TRUE)
+
+plot(Boston$dis, Boston$nox, xlim=dis_range)
+lines(dis_grid, poly_lm_pred$fit, lwd=2)
+```
+
+
+#### (b)
+```{r}
+for(degree in 1:10){
+  poly_lm = lm(nox ~ poly(dis, degree), data=Boston)
+  poly_lm_pred = predict(poly_lm, newdata=list(dis = dis_grid), se=TRUE)
+  plot(Boston$dis, Boston$nox, xlim=dis_range)
+  title(paste0("Degree: ", degree))
+  lines(dis_grid, poly_lm_pred$fit, lwd=2)
+  title(sub=paste0("RSS=", sum(poly_lm$residuals^2)))
+}
+```
+
+
+#### (c)
+```{r}
+set.seed(0)
+cv.error = rep(0, 10)
+
+for (degree in 1:10){
+  poly_lm = glm(nox ~ poly(dis, degree), data=Boston)
+  cv.error[degree] = cv.glm(Boston, poly_lm, K=10)$delta[1]
+}
+cv.error
+plot(cv.error)
+```
+
+
+There are not much difference in degrees 2-5 models, these model all performance well. The cross-validation errors of degrees 1 and 6 model are little higher than degrees 2-5 models, but the cross-validation errors are still acceptable. The degrees 7-10 models has higher cross-validation errors. Degrees 10 model has less cross-validation error than degrees 7-9 models,but has higher cross-validation error than degrees 1-6 models.Degrees 3 has the lowest cross-validation error, which is 0.003853017.
+
+
+#### (d)
+```{r}
+library(splines)
+```
+
+```{r}
+splines_lm = lm(nox ~ bs(dis, df=4), data=Boston)
+summary(splines_lm)
+```
+
+```{r}
+splines_pred = predict(splines_lm, list(dis = dis_grid))
+plot(nox ~ dis, data = Boston)
+lines(dis_grid, splines_pred)
+```
+
+Plot shows that the spline fits data well.
+
+
+#### (e)
+Here are plots of splines with degrees of freedom 5 to 20.
+
+```{r}
+rss = rep(0,15)
+
+for(df in 3:17){
+  splines_lm = lm(nox ~ bs(dis, df=df), data=Boston)
+  splines_preds = predict(splines_lm, newdata=list(dis = dis_grid),se=TRUE)
+  plot(Boston$dis, Boston$nox, xlim=dis_range)
+  title(paste0("Regression Spline with df=", df))
+  lines(dis_grid, splines_preds$fit)
+  title(sub=paste0("RSS=", sum(splines_lm$residuals^2)))
+  rss[df-2] = sum(splines_lm$residuals^2)
+}
+```
+
+```{r}
+df = seq(3,17)
+plot(df, rss)
+```
+
+According to these results, we can find that when df is bigger than 13, the rss becomes stable. The rss increase little firstly and then decrease little.
+
+
+#### (f)
+
+```{r,warning= FALSE}
+set.seed(0)
+cv.error = rep(0, 15)
+
+for (df in 3:17){
+  splines_lm = glm(nox ~ bs(dis, df=df), data=Boston)
+  cv.error[df-2] = cv.glm(Boston, splines_lm, K=10)$delta[1]
+   
+}
+```
+
+```{r}
+cv.error
+```
+
+```{r}
+df = seq(3,17,1)
+plot(df, cv.error)
+```
+
+The overall trend of cross-validation error is that cross-validation error increases with df increases, except for df = 3 and df = 4 two models.
+When df = 10, the model has lowest cross-validation error.So I choose that one as the best. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

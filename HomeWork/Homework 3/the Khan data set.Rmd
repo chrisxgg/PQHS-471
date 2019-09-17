@@ -1,0 +1,192 @@
+---
+title: "The Khan dataset"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(ISLR)
+library(tree)
+library(randomForest)
+library(caret)
+```
+
+```{r}
+attach(Khan)
+```
+
+
+## Random Forest
+After looking the dataset, there are 63 subjects in training set and there are 20 subjects in test set. Every subject has 2308 features. There are 4 types of small round blue cell tumors.
+
+First, we will set a loop of random forests with the hyperparameter `mtry` (features)from 1 to 100. The output below indicates the classification error percentage for each `mtry` value from 1-100.
+```{r}
+set.seed(0)
+
+class.err = rep(0, 100)
+
+for(features in 1:100)
+{
+  rf.khan = randomForest(x=xtrain, y=as.factor(ytrain), mtry=features)
+  class.err[features] = sum(as.numeric(rf.khan$predicted != ytrain))/63
+}
+```
+
+```{r}
+cbind(features=1:100, class.err)
+```
+
+Based on the results, we can see that the training set classifies perfectly when mtry is 8, 14, and most mtry values from 24 and onward.
+
+Because there are so many candidates, I decide to do cross-validation for each mtry of these 100 random forests.
+
+Name features:
+```{r}
+xtrain.mtx = as.matrix(xtrain)
+colnames(xtrain.mtx) = make.names(1:2308, unique=T)
+```
+
+Classify 4 types of small round blue cell tumors:
+```{r}
+ytrain.releveled = as.factor(ytrain)
+levels(ytrain.releveled) <- c("Type1", "Type2", "Type3", "Type4")
+```
+
+Do cross-validation:
+```{r}
+cv = trainControl(method="repeatedcv", number=5, repeats=4, classProbs=TRUE)
+```
+
+Random Forest for cross-valiation:
+```{r}
+library(e1071)
+set.seed(0)
+
+cv.rf.khan = train(x=xtrain.mtx, y=ytrain.releveled, trControl=cv, tuneGrid=data.frame(mtry=1:100), method="rf", ntree=500)
+cv.rf.khan
+plot(cv.rf.khan)
+```
+
+According to the result, the model with mtry being 63 reported perfect accuracy with cross-validation. 
+
+## Tree Boosting
+
+First, I¡¯ll use the defaults of the gbm function, a tree-boosting model with 100 trees, an interaction depth of 1, a shrinkage of 0.001, and a minimum number of 10 observations in the terminal node.
+
+```{r}
+library(gbm)
+train = data.frame(cbind("Y"=ytrain, xtrain.mtx))
+train$Y = as.factor(train$Y)
+
+set.seed(471)
+boost.khan = gbm(Y ~ ., data=train, distribution="multinomial",
+                 n.trees=100, interaction.depth=1,
+                 shrinkage=0.001, n.minobsinnode = 10)
+
+pred.probs = predict(boost.khan, train[,-1], n.trees=100, type="response")
+
+boost.khan.pred = rep(NA,0,63)
+for(x in 1:63){
+  boost.khan.pred[x] = which.max(pred.probs[x,,1])
+}
+sum(as.numeric(as.factor(ytrain) != boost.khan.pred))/63
+```
+
+Well, the tree boosting model shows zero training error. Instead of blindly guessing and checking to see what other models might result in zero training errors, I'll cross-validate this model along with other possible models.
+
+I'll try forests of 25, 50, 100, and 150 trees and a range of minimum numbers of observations in the terminal node: 2, 5, and 10.
+
+```{r}
+ctr = trainControl(method="cv", number=10) ## 10-fold CV
+
+mygrid = expand.grid(n.trees=c(25,50,100,150), interaction.depth=1,
+                     shrinkage=c(0.0001,0.001,0.01,0.1,0.2),
+                     n.minobsinnode=c(2, 5, 10))
+
+set.seed(471)
+boost.caret = train(x=xtrain.mtx, y=ytrain.releveled, trControl=ctr,
+                    method='gbm',
+                    tuneGrid=mygrid,
+                    preProc=c('center','scale'), verbose=F)
+
+boost.caret
+plot(boost.caret)
+boost.caret$bestTune
+```
+
+Based on the results, the vast majority of tree boosting models had perfect validation accuracy, and the procedure chose the smallest possible hyperparameters.
+
+I'll run cross-validation again with even smaller hyperparameter choices.
+
+```{r}
+mygrid = expand.grid(n.trees=c(1,2,5,25,50), interaction.depth=1,
+                     shrinkage=c(0.00001,0.0001,0.001,0.01),
+                     n.minobsinnode=c(1,2))
+
+set.seed(471)
+boost.caret = train(x=xtrain.mtx, y=ytrain.releveled, trControl=ctr,
+                    method='gbm',
+                    tuneGrid=mygrid,
+                    preProc=c('center','scale'), verbose=F)
+
+boost.caret
+plot(boost.caret)
+boost.caret$bestTune
+```
+
+I'll do one more round of cross-validation to really fine-tune these hyperparameters to get the simplest model that has perfect cross-validation accuracy.
+
+```{r}
+mygrid = expand.grid(n.trees=c(1,2,3,4,5), interaction.depth=1,
+                     shrinkage=c(0.00005,0.000075,0.0001,0.0005),
+                     n.minobsinnode=1)
+
+set.seed(471)
+boost.caret = train(x=xtrain.mtx, y=ytrain.releveled, trControl=ctr,
+                    method='gbm',
+                    tuneGrid=mygrid,
+                    preProc=c('center','scale'), verbose=F)
+
+boost.caret
+plot(boost.caret)
+boost.caret$bestTune
+```
+
+I will select the hyperparameters above as our best tree boosting model.
+
+## Test error of each model
+
+###RandomForest
+
+```{r}
+rf.test.pred = predict(cv.rf.khan$finalModel, xtest)
+
+sum(as.numeric(as.numeric(rf.test.pred) != ytest))
+cbind(ytest, rf.test.pred)
+```
+
+There are 2 test errors, for a test error rate of 2/20 = 10%.
+
+###Forest Boosting
+
+Now we¡¯ll compute the test errors of the random forest boosting model.
+
+```{r}
+boost.test.probs = predict(boost.caret$finalModel, xtest, type="response",
+                           n.trees=boost.caret$finalModel$n.trees)
+boost.test.pred  = rep(NA,0,20)
+for(x in 1:20){
+  boost.test.pred[x] = which.max(boost.test.probs[x,,1])
+}
+
+sum(as.numeric(ytest != boost.test.pred))
+cbind(ytest, boost.test.pred)
+```
+
+There are 3 testing errors, the test error rate of boosting model is  3/20 = 15%. 
+
+Therefore, our best model is our random forest with the hyperparameter `mtry` equal to 63.
+

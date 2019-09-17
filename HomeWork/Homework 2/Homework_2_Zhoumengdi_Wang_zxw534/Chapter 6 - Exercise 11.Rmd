@@ -1,0 +1,193 @@
+---
+title: "Homework2"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Chapter 6 - Exercise 11
+```{r}
+library(MASS)
+library(ISLR)
+library(glmnet)
+library(pls)
+library(leaps)
+```
+
+### (a)
+(1) Split the dataset.
+```{r}
+set.seed(0)
+training_index = sample(dim(Boston)[1], dim(Boston)[1]*0.8)
+
+Boston_train = Boston[training_index,]
+Boston_test = Boston[-training_index,]
+```
+
+(2) Linear Model
+```{r}
+lm_model = lm(crim ~ ., data = Boston_train)
+
+lm_test_pred = predict(lm_model, Boston_test)
+```
+```{r}
+sum((Boston_test$crim - lm_test_pred)^2)
+```
+```{r}
+mean((Boston_test$crim - lm_test_pred)^2)
+```
+
+(3) Ridge Refression Model
+```{r}
+train_matrix = model.matrix(crim ~ ., Boston_train)[,-1]
+test_matrix = model.matrix(crim ~ ., Boston_test)[,-1]
+
+ridge_model = glmnet(train_matrix, Boston_train$crim, alpha=0, lambda=10^seq(10, -2, length=100))
+
+set.seed(0)
+ridge_model_cv = cv.glmnet(train_matrix, Boston_train$crim, alpha=0, lambda=10^seq(10, -2, length=100))
+
+ridge_test_pred = predict(ridge_model, s=ridge_model_cv$lambda.min, newx=test_matrix)
+```
+```{r}
+sum((ridge_test_pred - Boston_test$crim)^2)
+```
+```{r}
+mean((ridge_test_pred - Boston_test$crim)^2)
+```
+
+(4) Lasso Model
+```{r}
+train_matrix = model.matrix(crim ~ ., Boston_train)[,-1]
+test_matrix = model.matrix(crim ~ .,  Boston_test)[,-1]
+
+lasso_model = glmnet(train_matrix, Boston_train$crim, alpha=1, lambda=10^seq(10, -2, length=100))
+
+set.seed(0)
+lasso_model_cv = cv.glmnet(train_matrix, Boston_train$crim, alpha=1, lambda=10^seq(10, -2, length=100))
+
+lasso_test_pred = predict(lasso_model, s=lasso_model_cv$lambda.min, newx=test_matrix)
+```
+```{r}
+sum((lasso_test_pred - Boston_test$crim)^2)
+```
+```{r}
+mean((lasso_test_pred - Boston_test$crim)^2)
+```
+
+(5) PCR Model
+```{r}
+set.seed(0)
+pcr_model = pcr(crim ~ ., data=Boston_train, scale=TRUE, validation="CV")
+summary(pcr_model)
+```
+The real helpful lowest MSE is $6.728^{2} = 45.266$.using 8 compoents.
+
+```{r}
+pcr_test_pred = predict(pcr_model, Boston_test, ncomp=8)
+```
+```{r}
+sum((pcr_test_pred - Boston_test$crim)^2)
+```
+```{r}
+mean((pcr_test_pred - Boston_test$crim)^2)
+```
+
+(6) PLS Regression model
+```{r}
+set.seed(0)
+pls_model = plsr(crim ~ ., data=Boston_train, scale=TRUE, validation="CV")
+summary(pls_model)
+```
+```{r}
+validationplot(pls_model, val.type="MSEP")
+```
+
+The lowest MSE is $6.680^{2} = 44.6224$. The least components which has the lowest MSE is 10 compoents.
+
+```{r}
+pls_test_pred = predict(pls_model, Boston_test, ncomp=10)
+```
+```{r}
+sum((pls_test_pred - Boston_test$crim)^2)
+```
+```{r}
+mean((pls_test_pred - Boston_test$crim)^2)
+```
+
+(7) Best Subset Selection model
+```{r}
+library(leaps)
+```
+```{r}
+predict.regsubsets =function(object, newdata, id,...){
+  form = as.formula(object$call[[2]])
+  mat = model.matrix(form, newdata)
+  coefi = coef(object, id=id)
+  xvars = names(coefi)
+  mat[,xvars]%*%coefi
+}
+
+k=10
+set.seed(0)
+folds = sample(1:k, nrow(Boston), replace=TRUE)
+cv.errors = matrix(NA, k, 13, dimnames=list(NULL, paste(1:13)))
+
+for(j in 1:k){
+  best.fit = regsubsets(crim ~ ., data=Boston[folds!=j,], nvmax=13)
+  for(i in 1:13){
+    pred=predict(best.fit, Boston[folds==j,], id=i)
+    cv.errors[j,i]= mean((Boston$crim[folds==j] - pred)^2)
+  }
+}
+```
+```{r}
+mean.cv.errors=apply(cv.errors, 2, mean)
+mean.cv.errors
+```
+```{r}
+par(mfrow=c(1,1))
+plot(mean.cv.errors, type='b')
+```
+
+Cross-validation selects a 9-variable model, which has lowest error 39.0977.
+
+#### (b) (c)
+Here is the MSEs in (a):
+Linear model: 40.89623 
+Ridge regression: 41.07925  
+Lasso method: 40.91244 
+PCR method: 42.70996  
+PLS method: 40.87073  
+Best subsets method: 39.09773 
+
+According to these MSEs, all the MSEs are around 40. Best subsets method has the least MSE. So I would like to choose the Best subsets method.
+```{r}
+mean.cv.errors=apply(cv.errors, 2, mean)
+mean.cv.errors
+```
+Base on the cross-validation, we can find that using 9 of the predictors is enough.Because the other 4 predictors are not useful. And the cross-validation tells us that when we select 7,8,9,10,11,12 and 13 predictors, the MSEs are all less than 40. So I think Best subsets method is a good model.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

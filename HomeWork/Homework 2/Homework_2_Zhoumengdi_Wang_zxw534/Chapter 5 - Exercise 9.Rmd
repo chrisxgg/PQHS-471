@@ -1,0 +1,108 @@
+---
+title: "Chapter 5 - Exercise 9"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Chapter 5 - Exercise 9
+```{r}
+library(MASS)
+```
+#### (a)
+The estimate for the population mean of `medv` is the sample mean of `medv`.
+$\hat{\mu}$:
+```{r}
+mean(Boston$medv)
+```
+
+#### (b)
+According to the hint, we can use the sample standard deviation of medv divided by the square root of the sample size of medv to get the estimate for the population mean of medv.
+```{r}
+sd(Boston$medv) / sqrt(length(Boston$medv))
+```
+
+#### (c)
+```{r}
+library(boot)
+```
+Estimate the standard error of $\hat{\mu}$ using the bootstrap:
+```{r}
+mean.function = function(data, index)
+                return(mean(data[index]))
+set.seed(0)
+boot(data = Boston$medv, statistic = mean.function, R=1000)
+```
+The result of bootstrap is little less than the conventionally calculated value.
+
+#### (d)
+```{r}
+confidence_interval_lower = mean(Boston$medv) - 2*0.3982063
+confidence_interval_upper = mean(Boston$medv) + 2*0.3982063
+
+confidence_interval_lower
+```
+```{r}
+confidence_interval_upper
+```
+```{r}
+t.test(Boston$medv)
+```
+The calculated confidence interval is about (21.73639, 23.32922) and the confidence interval of t-test is about (21.72953, 23.33608).
+
+#### (e)
+The median value of medv in the population -- $\hat{\mu}_{med}$:
+```{r}
+median(Boston$medv)
+```
+
+#### (f)
+```{r}
+median.function = function(data,index)
+                return(median(data[index]))
+set.seed(0)
+boot(data = Boston$medv, statistic = median.function, R=1000)
+```
+The standard error of the median in is 0.3616119 standard error seems to be little less than the standard error of the mean. 
+
+#### (g)
+(1)
+```{r}
+summary(Boston)
+```
+I set the 3rd quarter value of dis (5.188) as the threshold, if the dis of the is bigger than 5.188, I set this house as suburb. 
+
+```{r}
+BostonSuburb = subset(Boston,dis>5.188)
+BostonSuburb
+```
+```{r}
+quantile(BostonSuburb$medv, 0.1)
+```
+(2) 
+If I use the original dataset.
+```{r}
+quantile(Boston$medv, 0.1)
+```
+
+#### (h)
+(1) For BostonSuburb dataset.
+```{r}
+estimate_10.function = function(data, index)
+                  return(quantile(data[index], 0.1))
+
+set.seed(0)
+boot(data = BostonSuburb$medv, statistic = estimate_10.function, R=1000)
+```
+(2) For Boston dataset.
+```{r}
+estimate_10.function = function(data.vector, index)
+                  return(quantile(data.vector[index], 0.1))
+
+set.seed(0)
+boot(data = Boston$medv, statistic = estimate_10.function, R=1000)
+```
+For the original dataset, Boston, the standard error of ten-percentile is higher than the mean and the median.
+

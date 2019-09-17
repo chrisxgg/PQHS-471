@@ -1,0 +1,119 @@
+---
+title: "Chapter 8 - Exercise 9"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(ISLR)
+library(tree)
+```
+
+#### (a)
+```{r}
+set.seed(6)
+training.index = sample(dim(OJ)[1], 800)
+
+OJ_train = OJ[training.index,]
+OJ_test = OJ[-training.index,]
+```
+
+
+#### (b)
+
+```{r}
+tree_Purchase = tree(Purchase ~ ., OJ_train)
+summary(tree_Purchase)
+```
+
+This tree has 8 terminal nodes and the misclassification error rate is 14.75%.
+
+#### (c)
+
+```{r}
+tree_Purchase
+```
+
+'*' means this is a terminal node. 
+Let's focus on node number 24, the splitting value of this node is under 0.06560, which classifies a purchase as being Minute Maid (MM).
+There are 60 observations in this branch, with a deviance of 77.69.
+Whereas 65% of observations in this branch are indeed Minute Maid, 35% of them are not.
+
+#### (d)
+```{r}
+plot(tree_Purchase)
+text(tree_Purchase)
+```
+
+
+Most terminal nodes in the left branch are Purchase = CH.
+Most terminal nodes in the right branch are Purchase = MM.
+LoyalCH is involved more than others in this tree.
+
+
+#### (e)
+```{r}
+OJ_test_pred = predict(tree_Purchase, OJ_test, type="class")
+table(OJ_test$Purchase, OJ_test_pred)
+```
+
+The test error rate is (29 + 23)/(134 + 23 + 29 + 84) = 19.26%.
+
+
+#### (f)
+```{r}
+cv_OJ = cv.tree(tree_Purchase, FUN = prune.misclass)
+cv_OJ
+```
+
+#### (g)
+```{r}
+plot(cv_OJ$size, cv_OJ$dev, type="b")
+```
+
+#### (h)
+According to these results, the tree with 5 terminal nodes has the lowest classification error rate, with 149 classification errors.
+
+#### (i)
+```{r}
+pruned_OJ = prune.misclass(tree_Purchase, best=2)
+plot(pruned_OJ)
+text(pruned_OJ, pretty = 0)
+```
+
+#### (j)
+```{r}
+summary(pruned_OJ)
+```
+
+The training error rate of unpruned tree is 14.75%, the training error rate of pruned tree is 18.62%, which is higher than unpruned tree.
+
+#### (k)
+```{r}
+pruned_test_pred = predict(pruned_OJ, OJ_test, type="class")
+table(OJ_test$Purchase, pruned_test_pred)
+```
+
+The test error rate is (29 + 26)/(131 + 26 + 29 + 84) = 20.37%.
+
+The teat error rate of unpruned tree is 19.26%, the test error rate of pruned tree is 20.37%, which is higher than unpruned tree.
+It seems that the unpruned tree, which has more complexity structure, performance little better. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

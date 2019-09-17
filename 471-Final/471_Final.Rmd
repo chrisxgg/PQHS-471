@@ -1,0 +1,285 @@
+---
+title: "471-Final"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tree)
+library(randomForest)
+library(caret)
+library(xgboost)
+library(e1071)
+```
+
+# Load Data 
+```{r}
+trainset=read.table('trainset', header = T)
+testset=read.table('testset', header = T)
+
+```
+
+First of all, we check if there is any missing.
+```{r}
+anyNA(trainset)
+```
+```{r}
+anyNA(testset)
+```
+
+Because the original data is not numerical, so I have to transfor the data into numerical data.
+
+```{r}
+train =as.matrix(trainset)
+mean(sapply(train, is.numeric))
+```
+```{r}
+test =as.matrix(testset)
+mean(sapply(test, is.numeric))
+```
+
+Get the bankrupt data from the trainset.
+```{r}
+train.y = train[,55]
+train.x = train[,c(1:54)]
+test.y = test[,55]
+test.x = test[,c(1:54)]  
+```
+
+```{r}
+train.y = as.factor(train.y)
+test.y = as.factor(test.y)
+```
+
+
+# 1.Random Forest
+```{r}
+set.seed(0)
+rf = randomForest(train.x,train.y,mtry = 10,ntree = 10)
+```
+
+```{r}
+rf.pred = predict(rf, test.x, type = "class")
+score = table(rf.pred, test.y)
+score
+```
+```{r}
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+The accuracy of the Random Forest model is 92.60%.
+```{r}
+levels(train.y) <- c("Type1", "Type2")
+```
+
+## Improve model
+In order to improve the model, I decide to do cross-validation and chose the best metry.
+```{r}
+cv = trainControl(method="repeatedcv",repeats=5, classProbs=TRUE)
+set.seed(0)
+
+cv.rf = train(x=train.x, y=train.y, trControl=cv, tuneGrid=data.frame(mtry=1:25), method="rf", ntree=100)
+```
+```{r}
+plot(cv.rf)
+```
+
+According to the plot, the optimal mtry is 21.
+Using the best mtry to do the test again.
+```{r}
+rf.test.pred = predict(cv.rf$finalModel, test.x)
+score = table(rf.test.pred, test.y)
+score
+```
+```{r}
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+
+The accuracy now is 93.02%, better than 92.60%.
+
+# 2. Boosting
+```{r}
+train.y = train[,55]
+```
+
+```{r}
+set.seed(0)
+bst1 = xgboost(data = train.x, label = train.y, max_depth=4,eta = 1, nround = 5, objective = "binary:logistic")
+```
+```{r}
+test.y = test[,55]
+score = table(predict(bst1,test.x)>0.5,test.y)
+score
+```
+
+```{r}
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+
+The accuracy is 92.91%
+
+## Improve model
+In bossting model,I decide to find better max_depth,eta and nround.
+After trying different parameters, the better max_depth,eta and nround is 5,0.1,50
+```{r}
+bst2 = xgboost(data = train.x, label = train.y, max_depth=5,eta = 0.1, nround = 50, objective = "binary:logistic")
+test.y = test[,55]
+score = table(predict(bst2,test.x)>0.5,test.y)
+score
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+
+The accuracy now is 94.11%, better than last boosting model and the accuracy is also better than Random Forest.
+
+# SVM
+```{r}
+train.y = train[,55]
+test.y = test[,55]
+train.y = as.factor(train.y)
+test.y = as.factor(test.y)
+```
+
+Firstly, I use the same parameters in homwork 3.
+```{r}
+svm1 = svm(x = train.x,y = train.y,kernel ="linear", cost=0.01, scale=F)
+summary(svm1)
+
+svm.test.pred = predict(svm1, test.x)
+score = table(svm.test.pred, test.y)
+score
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+The accuracy is 90.67%.
+
+## Improve model
+### change kernel
+```{r}
+svm1 = svm(x = train.x,y = train.y,kernel ="radial", cost=0.01, scale=F)
+summary(svm1)
+
+svm.test.pred = predict(svm1, test.x)
+score = table(svm.test.pred, test.y)
+score
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+
+In this kernel function, although the accuracy is higher than before, but look at the result, the model just gives the prediction with all 0, this is a bad model.
+
+## Find better eta
+```{r}
+grid.c=expand.grid(C = seq(0.01,10,length.out = 10))
+trctrl.svm=trainControl(method = "cv", number = 5)
+
+set.seed(621)
+svm_Linear=train(x = train.x,y = train.y, method = "svmLinear",
+                    trControl=trctrl.svm,
+                    tuneGrid = grid.c,
+                    tuneLength = 10)
+
+svm_Linear
+
+predsvm=predict(svm_Linear, test.x)
+score = table(predsvm, test.y)
+score
+accuracy = (score[1,1] + score[2,2])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+accuracy
+```
+Now the accuracy is 92.7%, better than before.
+
+### For Supervised learning model, boosting model performance the best. The accuracy of improved model of Random Forest, boosting and svm are 92.60%,94.11% and 92.70%. 
+
+# K-means
+```{r}
+set.seed(0)
+wss = rep(0, 20)
+for (i in 1:20) {
+wss[i] = sum(kmeans(train.x, centers = i, nstart = 10)$tot.withinss)
+}
+```
+```{r}
+plot(wss)
+```
+
+According to the result, I would like to choose 5.
+
+```{r}
+set.seed(0)
+cluster.km = kmeans(train.x, 5, nstart = 10)
+```
+
+```{r}
+table(cluster.km$cluster)
+```
+```{r}
+cluster.km$cluster[3576:3838]
+```
+
+```{r}
+cluster.km$cluster[1:200]
+```
+Well, although all the would-bankrupt companies are clustered in cluster 5, but the most un-would-bankrupt are also clustered in cluster 5. 
+
+# MDS
+```{r}
+dist1 = dist(scale(train.x))
+```
+
+```{r}
+cmds2=cmdscale(dist1, k=2, add=T, list. = T)
+```
+```{r}
+mds_x = data.frame(cmds2$points)
+xy = cbind(mds_x, train.y)
+ggplot(xy, aes(x=X1,y=X2, colour = train.y))+geom_point()
+```
+```{r}
+library(rgl)
+cmds3=cmdscale(dist1, k=3, add=T, list. = T)
+x=cmds3$points[,1]
+y=cmds3$points[,2]
+z=cmds3$points[,3]
+```
+
+I didn't see the MDS is useful, so I would like to try it on testset.
+
+# K-means and MDS on testset
+```{r}
+set.seed(0)
+wss = rep(0, 20)
+for (i in 1:20) {
+wss[i] = sum(kmeans(test.x, centers = i, nstart = 10)$tot.withinss)
+}
+plot(wss)
+```
+```{r}
+set.seed(0)
+cluster.km = kmeans(test.x,7, nstart = 10)
+table(cluster.km$cluster)
+```
+```{r}
+dist2 = dist(scale(test.x))
+cmds2=cmdscale(dist2, k=2, add=T, list. = T)
+mds_x = data.frame(cmds2$points)
+xy = cbind(mds_x, test.y)
+ggplot(xy, aes(x=X1,y=X2, colour = test.y))+geom_point()
+```
+
+Well, I don't think MDS performance well in this dataset.
+
+

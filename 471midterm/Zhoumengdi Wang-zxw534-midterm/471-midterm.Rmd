@@ -1,0 +1,746 @@
+---
+title: "471 Midterm"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(class)
+library(rms)
+```
+
+## Load the data 
+```{r}
+census_train = read.csv("census_train.csv")
+census_train$income <- as.character((census_train$income))
+income50 = rep(1, nrow(census_train))
+income50[census_train$income == " <=50K"] = 0
+census_train = data.frame (census_train , income50)
+census_train$income <- factor(census_train$income, ordered = TRUE)
+```
+
+
+## 1.Preprocessing data/Perform exploratory analyses
+
+###(1) What is missing data? 
+The first thing we need to do is preprocessing the data. 
+Now we need to take care of the missing data.
+Hmisc::describe(census_train),this function can help us find the missing data.
+I use Hmisc::describe to view the whole data.
+
+```{r}
+Hmisc::describe(census_train)
+```
+
+See, there are three variables (workclass,occupation and native.country),which has the value¡±?¡±. 
+¡°?¡± isn¡¯t regarded as missing data, however, in fact, it is the missing data.
+
+Use Na to replace the "?"
+
+```{r}
+census_train[census_train == " ?"] <- NA
+```
+
+```{r}
+Hmisc::describe(census_train) 
+```
+
+###(2)How to deal with the missing data 
+With the missing data, there are some ways to deal with:
+1. delete
+2. use the highest frequency value to replace the missing data
+3. use the relationships between variables 
+I will combine 2 and 3 to deal with the missing data.
+
+We need to create the dataset with removing the missing data and the dataset with missing data.
+```{r}
+census_train_completed = na.omit(census_train)
+nrow(census_train) - nrow(census_train_completed)
+```
+
+```{r}
+list <-which(rowSums(is.na(census_train)) > 0)
+census_train_missing <-  census_train[list,]
+```
+
+The first class which has the missing data is workclass.
+I think the workclass is influenced by occupation. 
+So my first step is dealing with the missing data in occupation.
+For the missing data in occupation, I would like to use highest frequency value to replace the missing data.
+
+```{r}
+FindMode <- function(x) {
+
+    ux <- unique(x)
+
+    ux[which.max(tabulate(match(x, ux)))]
+
+}
+FindMode(census_train_completed$occupation)
+```
+
+So the highest frequency value of occupation is Prof-specialty.
+I use Prof-specialty to replace the NA in occupation.
+
+```{r}
+census_train_missing$occupation <- as.character((census_train_missing$occupation))
+census_train_missing$occupation[is.na(census_train_missing$occupation)] <- "Prof-specialty"
+```
+
+After dealing with the missing data in occupation, I need to find the relationship between the occupation and workclass.
+Show the table of these two vatiables:
+
+```{r}
+occupation_workclass = table(census_train_completed$occupation,census_train_completed$workclass)
+write.csv(occupation_workclass,file="occupation_workclass.csv")
+```
+
+We can find that when the occupation is Prof-specialty, the highest frequency value of workclass is private. I use private to replace the missing data in workclass.
+
+```{r}
+census_train_missing$workclass <- as.character((census_train_missing$workclass))
+census_train_missing$workclass[is.na(census_train_missing$workclass)] <- " Private"
+```
+
+For the missing data in native.country, I also use the highest frequency value.
+
+```{r}
+FindMode <- function(x) {
+
+    ux <- unique(x)
+
+    ux[which.max(tabulate(match(x, ux)))]
+
+}
+FindMode(census_train_completed$native.country)
+```
+
+So the highest frequency value of native.country is United-States.
+I use United-States to replace the missing data.
+
+```{r}
+census_train_missing$native.country <- as.character((census_train_missing$native.country))
+census_train_missing$native.country[is.na(census_train_missing$native.country)] <- " United-States"
+```
+
+After dealing with the missing data, let's review the dataset with missing data again.
+```{r}
+Hmisc::describe(census_train_missing) 
+```
+
+There is no more missing data, so let's gruop missing data and completed dataset.
+
+```{r}
+census_train_new = rbind(census_train_completed,census_train_missing) 
+```
+
+###(3) Check the variables
+####Close definition variables
+I found there are two pairs variables: education and education.num, marital_status and relationship, which have close definition. 
+Get the table of education and education.num:
+
+```{r}
+education.num_education = table(census_train_new$education.num, census_train_new$education)
+write.csv(education.num_education,file="education.num_education.csv")
+```
+
+The table shows that each class of education.num matches a education level, so I think the education should be dropped.
+
+Get the table of marital.status and relationship:
+
+```{r relationship_marital_status_cross_table}
+marital_status_relationship = table(census_train_new$marital.status, census_train_new$relationship)
+write.csv(marital_status_relationship,file="marital.status_relationship.csv")
+```
+
+I think marital.status is more clear than the relationship, so I decide to drop relationship.
+And I will combine Married-AF-spouse and Married-civ-spouse into a single category called Married.
+
+```{r}
+levels(census_train_new$marital.status)
+```
+
+```{r}
+levels(census_train_new$marital.status)[2] <- " Married"
+levels(census_train_new$marital.status)[3] <- " Married"
+levels(census_train_new$marital.status)
+```
+
+####Watch quantitative data
+
+```{r}
+ggplot(data=census_train_new, aes(x=age)) + geom_histogram()
+ggplot(data=census_train_new, aes(x=fnlwgt)) + geom_histogram()
+ggplot(data=census_train_new, aes(x=education.num)) + geom_histogram()
+ggplot(data=census_train_new, aes(x=capital.gain)) + geom_histogram()
+ggplot(data=census_train_new, aes(x=capital.loss)) + geom_histogram()
+ggplot(data=census_train_new, aes(x=hours.per.week)) + geom_histogram()
+```
+
+According to the histograms, capital.gain and capital.loss of most people is zero. 
+In fact, these two variables relate to privacy, I may delete them in adjusting models.
+
+####Watch qualitative data
+
+```{r}
+ggplot(data=census_train_new, aes(x=workclass)) + geom_bar() +theme(axis.text.x = element_text(angle = 30, hjust = 1))
+ggplot(data=census_train_new, aes(x=marital.status)) + geom_bar()
+ggplot(data=census_train_new, aes(x=occupation)) + geom_bar() + theme(axis.text.x = element_text(angle = 30, hjust = 1))
+ggplot(data=census_train_new, aes(x=race)) + geom_bar()
+ggplot(data=census_train_new, aes(x=sex)) + geom_bar()
+ggplot(data=census_train_new, aes(x=native.country)) + geom_bar() + theme(axis.text.x = element_text(angle = 50, hjust = 1))
+```
+
+For native.country, almost all people's native.country is United-Staste. So I will combine other countries into a new label"other country"
+
+```{r}
+levels(census_train_new$native.country)
+```
+
+```{r}
+levels(census_train_new$native.country)[1:39] <- " Other Country"
+levels(census_train_new$native.country)[3:4] <- " Other Country"
+levels(census_train_new$native.country)
+```
+
+```{r}
+ggplot(data=census_train_new, aes(x=native.country)) + geom_bar()
+```
+
+
+####Check collinearity
+
+```{r}
+census_train_new <-  census_train_new[,c(1,2,3,5,6,7,9,10,11,12,13,14,15,16)]
+```
+
+```{r}
+census_train_new_quantitative <-(census_train_new[,c(1,3,4,9,10,11)])
+census_train_new_qualitative <- (census_train_new[,c(2,5,6,7,8,12)])
+```
+
+```{r}
+cor(census_train_new_quantitative)
+```
+
+Most variables do not have strong collinearity, but the collinearity values of education.num-capital.gain and education.num-hours.per.week is higher than 0.1. According to ISLR, I can delete some variables which have collinearity.Howerver,I don't want to delete too many variables.
+
+####check variables and income
+
+```{r}
+census_train_new_quantitative_income <-(census_train_new[,c(1,3,4,9,10,11,14)])
+pairs(census_train_new_quantitative_income)
+```
+
+No quantitative variable is the determinative role of income.
+
+```{r}
+census_train_new$occupation <- factor(census_train_new$occupation, ordered = TRUE)
+census_train_new$workclass <- factor(census_train_new$workclass, ordered = TRUE)
+census_train_new$native.country <- factor(census_train_new$native.country, ordered = TRUE)
+census_train_new$marital.status <- factor(census_train_new$marital.status, ordered = TRUE)
+```
+
+```{r}
+table(census_train_new$workclass, census_train_new$income)
+```
+
+```{r}
+table(census_train_new$marital.status, census_train_new$income)
+```
+
+```{r}
+table(census_train_new$occupation, census_train_new$income)
+```
+
+```{r}
+table(census_train_new$race, census_train_new$income)
+
+```
+
+```{r}
+table(census_train_new$sex, census_train_new$income)
+
+```
+
+```{r}
+table(census_train_new$native.country, census_train_new$income)
+
+```
+
+No qualitative variable has the determinative role of income.
+
+## 2.Creating models
+
+In this part, I will use 10 fold cross-validation to find a better model.
+
+```{r}
+set.seed(6)
+require(caret)
+folds <- createFolds(y=census_train_new$income50,k=10)
+```
+
+###(1) Logistic Regression / LDA / KNN
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  
+  log.reg = glm((income50 == 1) ~ 
+                 # Quantitative
+                 age + fnlwgt  + hours.per.week + education.num + capital.gain + 
+                  capital.loss+
+                 
+                 # Qualitative
+                 sex + race + marital.status + native.country + workclass + occupation,
+                data=fold_train,family=binomial)
+  
+  fold_predict <- predict(log.reg,type='response',newdata=fold_test)
+  fold_predict = ifelse(fold_predict>0.5,1,0)
+  fold_accuracy = mean(fold_predict != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+  
+}
+ 
+print(min)
+print(num)
+```
+
+```{r}
+summary(log.reg)
+```
+
+#### LDA
+
+```{r}
+library(MASS)
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  lda1 = lda((income50 == 1) ~ age + workclass + fnlwgt + education.num + 
+                    marital.status + occupation + race + sex + capital.gain + 
+                    capital.loss + hours.per.week + native.country,       
+             
+            data=fold_train)
+  
+  fold_predict <- predict(lda1,type='response',newdata=fold_test)
+  fold_predict = ifelse(fold_predict$class == "TRUE", 1,0)
+  fold_accuracy = mean(fold_predict != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+####KNN k=1,3,5,10,50,100
+
+```{r}
+Knn_cv <- function(n,data) {
+
+    min=100
+    num=0
+for(i in 1:10){
+  fold_test <- data[folds[[i]],]   
+  fold_train <- data[-folds[[i]],]   
+  
+  train.X = cbind(fold_train$age, fold_train$fnlwgt, 
+                fold_train$capital.gain, fold_train$capital.loss,
+                fold_train$hours.per.week,fold_train$native.country,
+                fold_train$workclass,fold_train$education.num,
+                fold_train$marital.status,fold_train$occupation,
+                fold_train$race,fold_train$sex)
+  
+  query.X = cbind(fold_test$age,fold_test$fnlwgt, 
+                fold_test$capital.gain, fold_test$capital.loss,
+                fold_test$hours.per.week,fold_test$native.country,
+                fold_test$workclass,fold_test$education.num,
+                fold_test$marital.status,fold_test$occupation,
+                fold_test$race,fold_test$sex)
+  
+  set.seed(1)
+  knn1 = knn(train.X, query.X, fold_train$income50, k = n)
+  
+  fold_accuracy = mean(knn1 != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+
+}
+```
+```{r}
+print("K = 1")
+Knn_cv(1,census_train_new)
+
+print("K = 3")
+Knn_cv(3,census_train_new)
+
+print("K = 5")
+Knn_cv(5,census_train_new)
+
+print("K = 10")
+Knn_cv(10,census_train_new)
+
+print("K = 50")
+Knn_cv(50,census_train_new)
+
+print("K = 100")
+Knn_cv(100,census_train_new)
+
+```
+
+The LDA and KNN performance worse than logistic.
+We decided to go with the logistic regression and fine-tune it.
+
+###(2) Adjusting Logistic Regression
+####delete capital.loss and capital.gain
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  
+  log.reg1 = glm((income50 == 1) ~ 
+                 # Quantitative
+                 age + fnlwgt  + hours.per.week + education.num + 
+                 
+                 # Qualitative
+                 sex + race + marital.status + native.country + workclass + 
+                   occupation, data=fold_train,family=binomial)
+  
+  log.reg.probabilities1 = predict(log.reg1, fold_test, type="response")
+  log.reg.predictions1 = ifelse(log.reg.probabilities1 > 0.5, 1, 0)
+  fold_accuracy = mean(log.reg.predictions1 != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+It performance worse before removing capital.loss and capital.gain, so I will keep them.
+
+####use cubic splines with 5 nodes for all five quantitative predictors
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  
+  log.reg2 = glm((income50 == 1) ~ 
+                 # Quantitative
+                 rcs(age, 5) + rcs(fnlwgt, 5) + rcs(capital.gain, 5) +
+                 rcs(capital.loss, 5) + rcs(hours.per.week, 5) + rcs(education.num,5)
+                 +
+                 # Qualitative
+                 sex + race + marital.status + native.country + workclass +
+                   occupation,
+                data=fold_train, family=binomial)
+  
+  log.reg.probabilities2 = predict(log.reg2, fold_test, type="response")
+  log.reg.predictions2 = ifelse(log.reg.probabilities2 > 0.5, 1, 0)
+  fold_accuracy = mean(log.reg.predictions2 != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+```{r}
+summary(log.reg2)
+```
+
+####reduce the number of nodes for fnlwgt and capital.loss from 5 to 3 and added several interaction terms
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  
+  log.reg3 = glm((income50 == 1) ~ 
+                 
+                 # Quantitative
+                 rcs(age, 5) + rcs(fnlwgt, 3) + rcs(capital.gain, 5) +
+                 rcs(capital.loss, 3) + rcs(hours.per.week, 5) + rcs(education.num,5) +
+                 
+                 # Qualitative
+                 sex + race + marital.status + workclass + native.country
+                  + occupation +
+               
+                 # Interactions
+                 marital.status * age + workclass * age +
+                 education.num * age + hours.per.week * workclass + 
+                 hours.per.week * occupation + age * hours.per.week,
+                data=fold_train, family=binomial)
+  
+  log.reg.probabilities3 = predict(log.reg3, fold_test, type="response")
+  log.reg.predictions3 = ifelse(log.reg.probabilities3 > 0.5, 1, 0)
+  fold_accuracy = mean(log.reg.predictions3 != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+```{r}
+summary(log.reg3)
+```
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_train_new[folds[[i]],]   
+  fold_train <- census_train_new[-folds[[i]],]   
+  
+  log.reg4 = glm((income50 == 1) ~ 
+                 
+                 # Quantitative
+                 rcs(age, 5) + fnlwgt + rcs(capital.gain, 5) +
+                 rcs(capital.loss, 5) + rcs(hours.per.week, 5) + rcs(education.num,5) +
+                 
+                 # Qualitative
+                 sex + race + marital.status + workclass + native.country
+                  + occupation +
+               
+                 # Interactions
+                 marital.status * age + workclass * age +
+                 education.num * age + hours.per.week * workclass + 
+                 hours.per.week * occupation + age * hours.per.week,
+                data=fold_train, family=binomial)
+  
+  log.reg.probabilities4 = predict(log.reg4, fold_test, type="response")
+  log.reg.predictions4 = ifelse(log.reg.probabilities4 > 0.5, 1, 0)
+  fold_accuracy = mean(log.reg.predictions4 != fold_test$income50)
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+###(3) Tree / RandomForest
+####create variable for tree
+```{r}
+High_train = ifelse(census_train_new$income == " >50K","Yes","No")
+census_training = data.frame(census_train_new , High_train)
+
+```
+
+####tree
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_training[folds[[i]],]   
+  fold_train <- census_training[-folds[[i]],]  
+  
+  library(tree)
+  
+  tree = tree(High_train~ age + fnlwgt  + hours.per.week + education.num + 
+                capital.gain + capital.loss+
+                 # Qualitative
+                 sex + race + marital.status + workclass + occupation 
+              +native.country,
+                data=fold_train)
+  
+  tree.pred = predict(tree, fold_test, type = "class")
+  score = table(tree.pred, fold_test$High_train)
+  fold_accuracy = (score[1,2] + score[2,1])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+```{r}
+summary(tree)
+```
+
+####RandomForest
+
+```{r}
+min=100
+num=0
+for(i in 1:10){
+  fold_test <- census_training[folds[[i]],]   
+  fold_train <- census_training[-folds[[i]],]  
+  
+  set.seed(3)
+  library(randomForest)
+  X = fold_train[,c(1:12)]
+  y = fold_train[,15]
+  rf = randomForest(X,y,mtry = 10,ntree = 100)
+  
+  rf.pred = predict(rf, fold_test, type = "class")
+  score = table(rf.pred, fold_test$High_train)
+  fold_accuracy = (score[1,2] + score[2,1])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+  
+  
+  if(fold_accuracy<min)
+    {
+    min=fold_accuracy  
+    num=i
+    }
+}
+ 
+print(min)
+print(num)
+```
+
+```{r}
+summary(rf)
+```
+
+
+According to all models, I think the best one is randomForest, I will choose this one to test the test data.
+
+## 3. Test Data
+
+```{r}
+census_test = read.csv("census_test.csv")
+census_test$income <- as.character((census_test$income))
+income50 = rep(1, nrow(census_test))
+income50[census_test$income == " <=50K"] = 0
+census_test = data.frame (census_test , income50)
+census_test$income <- factor(census_test$income, ordered = TRUE)
+```
+
+```{r}
+census_test[census_test == " ?"] <- NA
+census_test = na.omit(census_test)
+Hmisc::describe(census_test) 
+```
+
+combine Married-AF-spouse and Married-civ-spouse into a single category called Married.
+
+```{r}
+levels(census_test$marital.status)
+```
+
+```{r}
+levels(census_test$marital.status)[2] <- " Married"
+levels(census_test$marital.status)[3] <- " Married"
+levels(census_test$marital.status)
+```
+
+```{r}
+levels(census_test$native.country)
+```
+
+```{r}
+levels(census_test$native.country)[1:38] <- " Other Country"
+levels(census_test$native.country)
+```
+```{r}
+levels(census_test$native.country)[3:4] <- " Other Country"
+levels(census_test$native.country)
+```
+
+```{r}
+census_test$occupation <- factor(census_test$occupation, ordered = TRUE)
+census_test$workclass <- factor(census_test$workclass, ordered = TRUE)
+census_test$native.country <- factor(census_test$native.country, ordered = TRUE)
+census_test$marital.status <- factor(census_test$marital.status, ordered = TRUE)
+```
+
+```{r}
+census_test <-  census_test[,c(1,2,3,5,6,7,9,10,11,12,13,14,15,16)]
+```
+
+```{r}
+High_train = ifelse(census_test$income == " >50K","Yes","No")
+census_test = data.frame(census_test , High_train)
+
+```
+
+
+```{r}
+set.seed(0)
+test_rf.pred = predict(rf, census_test, type = "class")
+score = table(test_rf.pred, census_test$High_train)
+fold_accuracy = (score[1,2] + score[2,1])/(score[1,2] + score[2,1] + score[1,1] + 
+                                               score[2,2])
+fold_accuracy
+```
+
+The final error rate is around 0.16. Not bad! 
+
+```{r}
+write.csv(test_rf.pred,file="Predict.csv")
+```
+
+
+
+

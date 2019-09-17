@@ -1,0 +1,503 @@
+---
+title: "Homework_1"
+author: "Zhoumengdi Wang (zxw534)"
+date: "February 5, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Note:
+This notebook only have the exercises of ISLR book.  
+I did the Taitanic exercise by python. 
+The result is the .ipynb file.
+Because the exercises use R, so I should also use R.
+But with the Taitanic I want to us Python. 
+
+# Week 1 Exercises
+
+## Chapter 2 - Exercise 1
+
+### a)
+A flexible model would work better than an inflexible model if we have a large sample size and a small number of predictors. That because when the sample size is large and the number of predictiors is small, it will easy to be underfitting, so a flexible model would work better. And because the sample size is large, an inflexible model can only generate a simple model, that kind of model has limitation.
+
+### b) 
+When there is a small size sample and a large size predictors, using a flexible model may cause overfitting. So an inflexible model would work better.
+
+### c) 
+When the relationship between the predictors and response is non-linear, using a flexible mode would be better. Because flexible model focus on more unlimited relationships. Inflexible model may fall into some simple relationship(e.g linear relationship).
+
+### d) 
+An inflexible mode would be better. Because flexible model may fit to the noise, that may cause overfitting. The result may cause variance increase.
+
+## Chapter 2 - Exercise 3
+
+### a)
+![](Chapter2_Exercise3a.png)
+
+### b)
+#### bias:
+Decreases as flexibility increases. Because when the flexibility increases, the model will fit the data closer, the model will try to fit the data correctly.
+
+#### variance:
+Increases as fiexibility increases. Because when the flexibility increases, the more change with new data.
+
+#### training error:
+Decreases as flexibility increases. Because when the flexibility increases, the model will fit the data closer and more correct.
+
+#### test error:
+The shape looks like "U". Firstly, test error will decrease with flexibility, because as flexiblity increases, model will get the correct trend of fitting data. An appropriate model with test data will make a great result. However, there is a tipping point, as flexibility increases, the model will cause overfitting. The model can fit training data verly close and correct, in this condition, the model only focus on fit the training data. The model cannot be use for any dataset but the training data.
+
+#### bayes/irreducible error:
+According to the definition, the error is constant.
+
+## Chapter 2 - Exercise 8
+```{r}
+```
+warnings('off')
+```{r}
+college = read.csv("College.csv")
+```
+
+### b)
+```{r}
+fix(college)
+
+rownames(college) = college[,1]
+fix(college)
+
+college = college[,-1]
+fix(college)
+```
+
+
+### c)
+
+#### i)
+```{r}
+summary(college)
+```
+
+
+#### ii)
+```{r}
+pairs(college[,1:10])
+```
+
+#### iii)
+```{r}
+plot(college$Private,college$Outstate)
+```
+
+
+#### iv)
+```{r}
+Elite = rep("No", nrow(college))
+Elite[college$Top10perc > 50] = "Yes"
+Elite = as.factor(Elite)
+college = data.frame(college , Elite)
+
+summary(college)
+
+plot(college$Elite, college$Outstate)
+```
+
+There are 78 "Elite" colleges and 699 that are not "Elite."
+
+#### v)
+```{r}
+attach(college)
+par(mfrow=c(2,2))
+hist(Apps, breaks=5)
+hist(Apps, breaks=15)
+hist(Apps, breaks=25)
+hist(Apps, breaks=35)
+
+par(mfrow=c(2,2))
+hist(Accept, breaks=5)
+hist(Accept, breaks=15)
+hist(Accept, breaks=25)
+hist(Accept, breaks=35)
+
+par(mfrow=c(2,2))
+hist(Enroll, breaks=5)
+hist(Enroll, breaks=15)
+hist(Enroll, breaks=25)
+hist(Enroll, breaks=35)
+```
+
+#### vi)
+```{r}
+plot(college$Private,college$Books)
+```
+The median of book costs in private colleges is lower than non-private colleges.  
+```{r}
+plot(college$Elite,college$Terminal)
+```
+Obviously, the elite colleges has higher percent of faculty with terminal degree than non-elite colleges.And in elite colleges, the percents are very high, the percents in most elite college are higher than 80%.
+```{r}
+plot(college$Elite,college$Grad.Rate)
+```
+The elite colleges has higher graduation rate, but not higher so much than non-elite colleges. And there is a unnormal graduation rate in one of the non-elite colleges.The unnormal rate is more than 100%, this value is impossible. 
+```{r}
+plot(college$Private,college$perc.alumni)
+```
+The private colleges has higher percent of alumni who donates. And the max donation is much higher than non-private colleges. 
+
+# Week 2 Exercises
+
+## Chapter 3 - Exercise 9
+
+### a)
+There are some valuse missed, so we need to replace the "?" to na. Because we cannot do processing with "?".
+```{r}
+Auto=read.csv("Auto.csv",header=T,na.strings ="?")
+
+pairs(Auto)
+```
+
+### b)
+use="pairwise.complete.obs" means deleting na value by pairs. 
+```{r}
+cor(Auto[,-9], use="pairwise.complete.obs")
+```
+
+### c)
+```{r }
+model1 = lm(mpg ~ cylinders + displacement + horsepower + weight + acceleration + year + origin, Auto)
+
+summary(model1)
+```
+
+#### i) 
+The F-statistic is 224.5,and P value is 2.2e-16. With the aloha level of 0.05, we can conclude that there is a relationship between the predictors and the cars¡¯ mpg. 
+
+#### ii)
+Based on the p-values associated with each variable, at an alpha level of 0.05, all predictors except for cylinders, horsepower and acceleration had a statistically significant relationship with mpg.
+
+#### iii)
+The cofficient of year is approximate 0.777, that means when the year increases 1 year, the mpg will increase 0.777.
+
+### d)
+```{r }
+plot(model1)
+```
+
+Based on the Residuals vs Fitted plot, there looks like a curves relationship between the fitted values and residuals.That means linear regression may not be appropriate for the data. And the plot may show the heteroscedasticity, because with the fitted values increase, the variance of residuals seems to increase,too.
+
+Look at Normal Q-Q plot, there is a observation which is much higher than the others. That means this observation 323 may be an unnormal value. 
+
+According to the Residuals vs Leverage plot, there are no individual data points with unusually high leverage.
+
+
+### e)
+```{r }
+model2 = lm(mpg ~ cylinders * displacement * horsepower * weight * acceleration * year * origin, Auto)
+anova(model1, model2)
+```
+```{r }
+model3 = lm(mpg ~ cylinders : displacement : horsepower : weight * acceleration : year : origin, Auto)
+anova(model1, model3)
+```
+
+According to the low P value, there are statistically significant interactions between the predictor variables.
+
+#### f)
+```{r}
+Auto$displacement.t = log(Auto$displacement)
+Auto$horsepower.t = log(Auto$horsepower)
+Auto$weight.t = log(Auto$weight)
+Auto$year.t = log(Auto$year)
+
+model_log = lm(mpg ~ cylinders * displacement.t * horsepower.t * weight.t * acceleration * year.t * origin, Auto)
+plot(model_log)
+```
+
+
+Using log transformation, the Residuals vs Fitted plot, the relationship looks like more appropriate, and there are some high-leverage points.
+
+```{r}
+Auto$cylinders.tt = (Auto$cylinders)^2
+Auto$acceleration.tt = (Auto$acceleration)^2
+
+model.2 = lm(mpg ~ cylinders.tt * displacement * horsepower * weight * acceleration.tt * year * origin, Auto)
+plot(model.2)
+```
+
+Using log transformation, there are some high-leverage points.
+
+# Chapter 3 - Exercise 15 
+
+
+```{r load_MASS}
+library(MASS)
+```
+
+```{r}
+model.zn = lm(crim ~ zn, Boston)
+model.indus = lm(crim ~ indus, Boston)
+model.chas = lm(crim ~ chas, Boston)
+model.nox = lm(crim ~ nox, Boston)
+model.rm = lm(crim ~ rm, Boston)
+model.age = lm(crim ~ age, Boston)
+model.dis = lm(crim ~ dis, Boston)
+model.rad = lm(crim ~ rad, Boston)
+model.tax = lm(crim ~ tax, Boston)
+model.ptratio = lm(crim ~ ptratio, Boston)
+model.black = lm(crim ~ black, Boston)
+model.lstat = lm(crim ~ lstat, Boston)
+model.medv = lm(crim ~ medv, Boston)
+
+summary(model.zn)
+summary(model.indus)
+summary(model.chas)
+summary(model.nox)
+summary(model.rm)
+summary(model.age)
+summary(model.dis)
+summary(model.rad)
+summary(model.tax)
+summary(model.ptratio)
+summary(model.black)
+summary(model.lstat)
+summary(model.medv)
+```
+```{r}
+plot(Boston$zn, Boston$crim)
+```
+```{r}
+plot(Boston$indus, Boston$crim)
+```
+```{r}
+plot(Boston$chas, Boston$crim)
+```
+```{r}
+plot(Boston$nox, Boston$crim)
+```
+```{r}
+plot(Boston$rm, Boston$crim)
+```
+```{r}
+plot(Boston$age, Boston$crim)
+```
+```{r}
+plot(Boston$dis, Boston$crim)
+```
+```{r}
+plot(Boston$rad, Boston$crim)
+```
+```{r}
+plot(Boston$tax, Boston$crim)
+```
+```{r}
+plot(Boston$ptratio, Boston$crim)
+```
+```{r}
+plot(Boston$black, Boston$crim)
+```
+```{r}
+plot(Boston$lstat, Boston$crim)
+```
+```{r}
+plot(Boston$medv, Boston$crim)
+```
+According to the P values of all models, all variables are statistically significant predictors of crim, except for chas.
+
+### b)
+```{r}
+model_b = lm(crim ~ zn + indus + chas + nox + rm + age + dis + rad + tax + ptratio + black + lstat + medv, Boston)
+summary(model_b)
+```
+If the alpha level is 0.05, we can reject the null hypothesis for the predictors: zn,dis,rad,black and medv. The P-value of these predictors are lower than 0.05.
+
+### c)
+```{r}
+simple.coefficients = c(coefficients(model.zn)[2], coefficients(model.indus)[2],
+                        coefficients(model.chas)[2], coefficients(model.nox)[2],
+                        coefficients(model.rm)[2], coefficients(model.age)[2],
+                        coefficients(model.dis)[2], coefficients(model.rad)[2],
+                        coefficients(model.tax)[2], coefficients(model.ptratio)[2],
+                        coefficients(model.black)[2], coefficients(model.lstat)[2],
+                        coefficients(model.medv)[2])
+multiple.coefficients = coefficients(model_b)[2:14]
+plot(simple.coefficients, multiple.coefficients)
+```
+
+All the variable are clustered in the top left corner, except one variable.
+Let's find which variable is so special:
+```{r}
+simple.coefficients
+```
+
+The variable in the bottom right corner is nox. 
+
+### d)
+```{r}
+model.zn.nonlinear = lm(crim ~ poly(zn, 3), Boston)
+model.indus.nonlinear = lm(crim ~ poly(indus, 3), Boston)
+model.chas.nonlinear = lm(crim ~ chas + I(chas^2) + I(chas^3), Boston)
+model.nox.nonlinear = lm(crim ~ poly(nox, 3), Boston)
+model.rm.nonlinear = lm(crim ~ poly(rm, 3), Boston)
+model.age.nonlinear = lm(crim ~ poly(age, 3), Boston)
+model.dis.nonlinear = lm(crim ~ poly(dis, 3), Boston)
+model.rad.nonlinear = lm(crim ~ poly(rad, 3), Boston)
+model.tax.nonlinear = lm(crim ~ poly(tax, 3), Boston)
+model.ptratio.nonlinear = lm(crim ~ poly(ptratio, 3), Boston)
+model.black.nonlinear = lm(crim ~ poly(black, 3), Boston)
+model.lstat.nonlinear = lm(crim ~ poly(lstat, 3), Boston)
+model.medv.nonlinear = lm(crim ~ poly(medv, 3), Boston)
+
+anova(model.zn, model.zn.nonlinear)
+anova(model.indus, model.indus.nonlinear)
+anova(model.chas, model.chas.nonlinear)
+anova(model.nox, model.nox.nonlinear)
+anova(model.rm, model.rm.nonlinear)
+anova(model.age, model.age.nonlinear)
+anova(model.dis, model.dis.nonlinear)
+anova(model.rad, model.rad.nonlinear)
+anova(model.tax, model.tax.nonlinear)
+anova(model.ptratio, model.ptratio.nonlinear)
+anova(model.black, model.black.nonlinear)
+anova(model.lstat, model.lstat.nonlinear)
+anova(model.medv, model.medv.nonlinear)
+```
+If the alpha level is 0.05, the polynomial transformation of all predictor variables generate better models except for chas and black.But chas is a binary variable, transformation won't change the model.So we can conclude that these predictor variables may have non-linear relationship with crim. 
+
+# Week 3 Homework
+## Chapter 4 - Exercise 13
+
+###  logistic regression 
+
+```{r}
+median(Boston$crim)
+```
+```{r}
+Boston$crim.higher.median = ifelse(Boston$crim >= median(Boston$crim), 1, 0)
+```
+```{r}
+train = 1:(dim(Boston)[1]*.8)
+test = (dim(Boston)[1]*.8):dim(Boston)[1]
+
+Boston.train = Boston[train,]
+Boston.test = Boston[test,]
+```
+```{r}
+log_reg = glm((crim.higher.median == 1) ~ zn + indus + chas + nox + rm + age + dis + rad + tax + ptratio + black + lstat + medv, data=Boston.train, family=binomial)
+summary(log_reg)
+```
+```{r}
+log.reg.probabilities = predict(log_reg, Boston.test, type="response")
+log.reg.predictions = ifelse(log.reg.probabilities >= 0.5, 1, 0)
+mean(log.reg.predictions != Boston.test$crim.higher.median)
+```
+The error rate on this test sample is 9.8%.
+
+Now, we use the statistically significant predictors(nox,rad,ptratio and medv) to generate a model. 
+
+```{r}
+log_reg2 = glm((crim.higher.median == 1) ~ nox + dis + rad + ptratio + medv, data=Boston.train, family=binomial)
+summary(log_reg2)
+```
+```{r}
+log.reg.probabilities2 = predict(log_reg2, Boston.test, type="response")
+log.reg.predictions2 = ifelse(log.reg.probabilities2 >= 0.5, 1, 0)
+mean(log.reg.predictions2 != Boston.test$crim.higher.median)
+```
+Well,according to the error rate, the model is worse. 
+
+###  LDA
+
+```{r}
+lda1 = lda((crim.higher.median == 1) ~ zn + indus + chas + nox + rm + age + dis + rad + tax + ptratio + black + lstat + medv, data=Boston.train)
+
+lda.predictions.text1 = predict(lda1, Boston.test)
+lda.predictions1 = ifelse(lda.predictions.text1$class == "TRUE", 1, 0)
+
+mean(lda.predictions1 != Boston.test$crim.higher.median)
+```
+The error rate on this test sample is 12.7%.
+
+```{r}
+lda2 = lda((crim.higher.median == 1) ~ nox + dis + rad + ptratio + medv, data=Boston.train)
+
+lda.predictions.text2 = predict(lda2, Boston.test)
+lda.predictions2 = ifelse(lda.predictions.text2$class == "TRUE", 1, 0)
+
+mean(lda.predictions2 != Boston.test$crim.higher.median)
+```
+For LDA, using statistically significant predictors also creates a worse medel.
+
+###  KNN
+
+```{r}
+library(class)
+train.X = cbind(Boston.train$zn, Boston.train$indus, Boston.train$chas, Boston.train$nox, 
+                Boston.train$rm, Boston.train$age, Boston.train$dis, Boston.train$rad, 
+                Boston.train$tax, Boston.train$ptratio, Boston.train$black, 
+                Boston.train$lstat, Boston.train$medv)
+test.X  = cbind(Boston.test$zn, Boston.test$indus, Boston.test$chas, Boston.test$nox, 
+                Boston.test$rm, Boston.test$age, Boston.test$dis, Boston.test$rad, 
+                Boston.test$tax, Boston.test$ptratio, Boston.test$black, Boston.test$lstat, 
+                Boston.test$medv)
+
+train.X2 = cbind(Boston.train$nox, Boston.train$dis, Boston.train$rad, 
+                 Boston.train$ptratio,Boston.train$medv)
+test.X2  = cbind(Boston.test$nox, Boston.test$dis, Boston.test$rad, 
+                 Boston.test$ptratio,Boston.test$medv)
+     
+```
+```{r}
+set.seed(0)
+knn1 = knn(train.X, test.X, Boston.train$crim.higher.median, k = 10)
+mean(knn1 != Boston.test$crim.higher.median)
+```
+The error rate of KNN method with K=10 is only 7.8%.
+
+```{r}
+set.seed(1)
+knn2 = knn(train.X2, test.X2, Boston.train$crim.higher.median, k = 10)
+
+mean(knn2 != Boston.test$crim.higher.median)
+```
+Wow, for KNN method, using statistically significant predictors creates a better medel. The error rate is only 6.9% 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,180 @@
+---
+title: "Chapter9-Exercise-8"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(ISLR)
+library(caret)
+library(gbm)
+library(e1071)
+```
+
+## Chapter 9 - Exercise 8
+
+### Task (a)
+```{r}
+set.seed(2018)
+
+training.indices = sample(dim(OJ)[1], 800)
+
+OJ.train = OJ[training.indices,]
+OJ.test = OJ[-training.indices,]
+```
+
+### Task (b)
+```{r}
+svm.OJ = svm(Purchase ~ ., OJ.train, kernel ="linear", cost=0.01, scale=F)
+summary(svm.OJ)
+```
+
+The summary shows that a linear kernel was used with `cost=0.01` and `gamma=0.05555556`. There are 616 support vectors: 309 in the CH level and 307 in MM.
+
+### Task (c)
+
+```{r}
+svm.train.pred = predict(svm.OJ, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+The training error rate is 29.25%.
+
+```{r}
+svm.test.pred  = predict(svm.OJ, OJ.test)
+sum(as.numeric(OJ.test$Purchase != svm.test.pred))/nrow(OJ.test)
+```
+
+The test error rate is slightly worse at 30.74074%.
+
+### Task (d)
+
+```{r}
+set.seed(2018)
+OJ.svm.tune = tune(svm, Purchase ~ ., data=OJ.train, kernel = "linear",
+     ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10)))
+OJ.svm.tune
+```
+
+The optimal cost turns out to be 0.1.
+
+### Task (e)
+
+```{r}
+svm.train.pred = predict(OJ.svm.tune$best.model, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+With cost=0.1, the training error rate has improved to 15.75%
+
+```{r}
+svm.test.pred  = predict(OJ.svm.tune$best.model, OJ.test)
+test.err.linear = sum(as.numeric(OJ.test$Purchase != svm.test.pred))/nrow(OJ.test)
+test.err.linear
+```
+
+The test error rate also improved to 17.03704%.
+### Task (f)
+```{r}
+svm.OJ = svm(Purchase ~ ., OJ.train, kernel="radial", cost=0.01, scale=F)
+summary(svm.OJ)
+```
+
+The summary shows that a radial kernel was used with cost=0.01 and gamma=0.05555556. There are 627 support vectors: 320 in the CH level and 307 in MM.
+
+```{r}
+svm.train.pred = predict(svm.OJ, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+The test error rate is slightly worse at 40.74074%.
+
+```{r}
+set.seed(2018)
+OJ.svm.tune = tune(svm, Purchase ~ ., data=OJ.train, kernel = "radial",
+     ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10)))
+OJ.svm.tune
+```
+
+The optimal cost turns out to be 1.
+
+```{r}
+svm.train.pred = predict(OJ.svm.tune$best.model, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+With cost=1, the training error rate has improved to 14.25%
+
+```{r}
+svm.test.pred  = predict(OJ.svm.tune$best.model, OJ.test)
+test.err.radial = sum(as.numeric(OJ.test$Purchase != svm.test.pred))/nrow(OJ.test)
+test.err.radial
+```
+
+The test error rate also improved to 17.40741%.
+
+### Task (g)
+
+```{r}
+svm.OJ = svm(Purchase ~ ., OJ.train, kernel="polynomial", cost=0.01, degree=2, scale=F)
+summary(svm.OJ)
+```
+
+The shows that a polynomial kernel was used with cost=0.01 and gamma=0.05555556. There are 344 support vectors: 173 in the CH level and 171 in MM.
+
+```{r}
+svm.train.pred = predict(svm.OJ, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+The training error rate is 15.875%.
+
+```{r }
+svm.test.pred  = predict(svm.OJ, OJ.test)
+sum(as.numeric(OJ.test$Purchase != svm.test.pred))/nrow(OJ.test)
+```
+
+The test error rate is slightly worse at 17.03704%.
+
+```{r}
+set.seed(2018)
+OJ.svm.tune = tune(svm, Purchase ~ ., data=OJ.train, kernel = "polynomial", degree=2,
+     ranges=list(cost=c(0.001, 0.01, 0.1, 1, 5, 10)))
+OJ.svm.tune
+```
+
+The optimal cost turns out to be 10.
+
+```{r ch9e8tg_train_err}
+svm.train.pred = predict(OJ.svm.tune$best.model, OJ.train)
+sum(as.numeric(OJ.train$Purchase != svm.train.pred))/nrow(OJ.train)
+```
+
+With cost=10, the training error rate has improved to 14.375%
+
+```{r ch9e8tg_test_err}
+svm.test.pred  = predict(OJ.svm.tune$best.model, OJ.test)
+test.err.poly = sum(as.numeric(OJ.test$Purchase != svm.test.pred))/nrow(OJ.test)
+test.err.poly
+```
+
+The test error rate also improved to 18.14815%.
+
+### Task (h)
+
+The only thing I care about is the test error rates after the cost parameter was chosen through cross-validation:
+
+```{r}
+cbind(Kernel = c("Linear", "Radial", "Polynomial"),
+      Test.error.rate = c(paste0(round(test.err.linear*100, 2),"%"), 
+                          paste0(round(test.err.radial*100, 2),"%"),
+                          paste0(round(test.err.poly*100, 2),"%")))
+```
+
+Therefore, the linear kernel has the best results for these data.
+
+
+

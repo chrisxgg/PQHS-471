@@ -1,0 +1,137 @@
+---
+title: "Chapter 6 - Exercise 9"
+author: "Zhoumengdi Wang (zxw534)"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Chapter 6 - Exercise 9
+
+### (a)
+```{r}
+library(ISLR)
+```
+```{r}
+set.seed(0)
+training_index = sample(dim(College)[1], dim(College)[1]*0.8)
+
+College_train = College[training_index,]
+College_test = College[-training_index,]
+```
+
+### (b)
+Here I use linear model to fit the training data with all variables.And I use this model to predict the number of applications received.
+After predicting, we output the sum and mean of squared error.
+```{r}
+lm_model = lm(Apps ~ ., data = College_train)
+
+lm_test_pred = predict(lm_model, College_test)
+```
+```{r}
+sum((College_test$Apps - lm_test_pred)^2)
+```
+```{r}
+mean((College_test$Apps - lm_test_pred)^2)
+```
+
+### (c)
+```{r}
+library(glmnet)
+```
+```{r}
+train_matrix = model.matrix(Apps ~ ., College_train)[,-1]
+test_matrix = model.matrix(Apps ~ ., College_test)[,-1]
+
+ridge_model = glmnet(train_matrix, College_train$Apps, alpha=0, lambda=10^seq(10, -2, length=100))
+
+set.seed(0)
+ridge_model_cv = cv.glmnet(train_matrix, College_train$Apps, alpha=0, lambda=10^seq(10, -2, length=100))
+
+ridge_test_pred = predict(ridge_model, s=ridge_model_cv$lambda.min, newx=test_matrix)
+```
+```{r}
+sum((ridge_test_pred - College_test$Apps)^2)
+```
+```{r}
+mean((ridge_test_pred - College_test$Apps)^2)
+```
+
+### (d)
+```{r}
+train_matrix = model.matrix(Apps ~ ., College_train)[,-1]
+test_matrix = model.matrix(Apps ~ .,  College_test)[,-1]
+
+lasso_model = glmnet(train_matrix, College_train$Apps, alpha=1, lambda=10^seq(10, -2, length=100))
+
+set.seed(0)
+lasso_model_cv = cv.glmnet(train_matrix, College_train$Apps, alpha=1, lambda=10^seq(10, -2, length=100))
+
+lasso_test_pred = predict(lasso_model, s=lasso_model_cv$lambda.min, newx=test_matrix)
+```
+```{r}
+sum((lasso_test_pred - College_test$Apps)^2)
+```
+```{r}
+mean((lasso_test_pred - College_test$Apps)^2)
+```
+```{r}
+predict(lasso_model, type="coefficients", s=lasso_model_cv$lambda.min)
+```
+All predictors have non-zero coefficients.
+
+### (e)
+```{r}
+library(pls)
+warnings('off')
+```
+```{r}
+set.seed(0)
+pcr_model = pcr(Apps ~ ., data=College_train, scale=TRUE, validation="CV")
+summary(pcr_model)
+```
+```{r}
+validationplot(pcr_model, val.type="MSEP")
+```
+
+According to the result, the lowest MSE is $1223^{2} = 1495729$, using all 17 components. Because at this time, the pcr model use all components, the dimension doesn't decrease. The second lowest MST is $1260^{2} = 1587600$, but the model use 16 components, the dimension still doesn't decrease.So the real helpful lowest MSE is $1557^{2} = 2424249$, using 10 components.Well, I'd pick M = 10 to calculate the test error. 
+```{r}
+pcr_test_pred = predict(pcr_model, College_test, ncomp=10)
+```
+```{r}
+sum((pcr_test_pred - College_test$Apps)^2)
+```
+```{r}
+mean((pcr_test_pred - College_test$Apps)^2)
+```
+
+### (f)
+```{r}
+set.seed(0)
+pls_model = plsr(Apps ~ ., data=College_train, scale=TRUE, validation="CV")
+summary(pls_model)
+```
+
+```{r}
+validationplot(pls_model, val.type="MSEP")
+```
+
+
+The helpful lowest MSE is $1222^{2} = 1493284$,using 13 components.
+```{r}
+pls_test_pred = predict(pls_model, College_test, ncomp=13)
+```
+```{r}
+sum((pls_test_pred - College_test$Apps)^2)
+```
+```{r}
+mean((pls_test_pred - College_test$Apps)^2)
+```
+
+### (g)
+According to the results of all models, it seems that all models don't performance well.The least MSE of test is 947313.9, using lasso model. Expect for pcr model, the results of other models do not have much difference. The MSE of test of pcr model is 1528997, the reason is the dimension doesn't decrease. 
+
+
+
+
